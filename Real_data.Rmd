@@ -1,0 +1,503 @@
+```{r}
+library(caret)
+library(stats)
+library(dplyr)
+library(e1071)
+library(MASS)
+library(ggplot2)
+library(parallel)
+library(Matrix)
+library(gridExtra)
+library(scales)
+library(stlplus)
+library(ks)
+library(patchwork)
+library(tseries)
+library(patchwork)
+library(urca)
+```
+
+###New KDE
+```{r}
+adaptive_bivariate_kernel_density <- function(x, y, eval_points_x, eval_points_y, alpha = 0.5, h_x_adaptive = 15, h_y_adaptive = 15, adaptive = TRUE) {
+  n <- length(x)
+  
+  if (adaptive) {
+    h_global <- Hpi(cbind(x, y))
+    h_x <- sqrt(h_global[1, 1])
+    h_y <- sqrt(h_global[2, 2])
+    
+    # initial_density <- kde(cbind(x, y), H = h_global, eval.points = cbind(x, y))$estimate
+    # g <- exp(mean(log(initial_density)))
+    # 
+    # lambda <- (g / initial_density)^alpha
+    # h_x_adaptive <- h_x * lambda
+    # h_y_adaptive <- h_y * lambda
+    h_x_adaptive <- h_x
+    h_y_adaptive <- h_y
+  }
+  
+  #indicator <- x > 0
+  #valid_indices <- which(indicator)
+  #x <- x[valid_indices]
+  #y <- y[valid_indices]
+  #h_x_adaptive <- h_x_adaptive[valid_indices]
+  #h_y_adaptive <- h_y_adaptive[valid_indices]
+    weights <- dnorm((eval_points_x - x) / h_x) * dnorm((eval_points_y - y) / h_y) / (h_x * h_y)
+    weights_t <- dnorm((eval_points_x - x) / h_x) * h_x
+    density_matrix <- sum(weights) / sum(weights_t)
+  return(density_matrix)
+}
+```
+
+###Real Data 5.2
+```{r}
+library(ggplot2)
+library(gridExtra)
+data_test <- read.csv("~/NAB-master/data/realKnownCause/nyc_taxi.csv")
+data <- data_test
+ggplot(data, aes(x = timestamp, y = value)) +
+  geom_line(aes(group = 1)) +
+  geom_smooth(method = "loess", formula = y ~ x, aes(group = 1), color = "blue", se = FALSE) +
+  labs(title = "NYC Taxi Passenger Count Time Series",
+       y = "Passenger Count", 
+       x = "Timestamp") +
+  theme_minimal()
+
+data_test <- stlplus(
+  x = data$value,     
+  t = data$timestamp,
+  n.p = 48*14,    
+  s.window = "periodic",   
+  t.window = 50,          
+  t.degree = 1,           
+  inner = 20,            
+  outer = 5         
+)
+
+
+X_calib<-  data_test[[1]][[4]][1:2000]
+X_test <- data_test[[1]][[4]][-(1:2000)]
+
+Z <- c(X_calib,X_test)
+Z0 <- X_calib
+
+n_cal <- length(X_calib)
+n_test <- length(X_test)
+init <- n_cal
+m <- length(Z)
+h <- 5
+N <- 20#floor(5*h)
+f_t <- rep(0,n_test)
+
+
+for (i in (init+1):m){
+  tmp_t <- max(1,i-N):(i-1)
+  tmp_x <- Z[max(1,i-N):(i-1)]
+  f_t[i-init]<- adaptive_bivariate_kernel_density(tmp_t, tmp_x, i, Z[i], alpha = 0.5)
+}
+
+f_0 <- rep(0,n_test)
+
+
+f_0_func <- density(Z0)
+
+
+for (i in (init+1):m){
+  f_0[i-init]<- approx(f_0_func$x, f_0_func$y, xout = Z[i])$y
+}
+
+e_LR <- f_t/f_0
+
+input_e_LR <- data.frame(eval = e_LR)
+alpha = 0.20
+
+p_values_right <- 1 - pnorm(X_test, mean = mean(X_calib), sd = sd(X_calib))
+p_values_left <- pnorm(X_test, mean = mean(X_calib), sd = sd(X_calib))#
+p_values_two_sided <- 2 * pmin(p_values_left, p_values_right)
+input_p <- as.data.frame(p_values_two_sided)
+
+results_lord <- LORD(p_values_two_sided, alpha = alpha)
+results_addis <- ADDIS(p_values_two_sided, async = FALSE, alpha = alpha, lambda=0.5, tau=0.75)
+results_SAFFRON <- SAFFRON(p_values_two_sided, alpha = alpha, random = F, lambda=0.5)
+results_pL <- pL(p_values_two_sided, alpha = alpha, random = F, rho_penalty = 0.5)
+results_pS<- pS(p_values_two_sided, alpha = alpha, random = F, lambda=0.1, rho_penalty = 0.5)
+results_suplord <- supLORD(p_values_two_sided, delta = 0.1 , eps = 0.2716454 , r = 30, eta = 0.05, rho = 30)
+
+results_elord <- eLORD(input_e_LR, alpha = alpha, random = F, rho_penalty = 0.5)
+results_eSAFFRON <- eSAFFRON(input_e_LR, alpha = alpha, random = F, lambda=0.1, rho_penalty = 0.5)
+results_elond <- eLOND(evec = e_LR, delta = alpha)
+
+
+
+
+data$R_lord <- as.logical(c(rep(0,2000),(results_lord$R)))
+data$R_SAFFRON <- as.logical(c(rep(0,2000),(results_SAFFRON$R)))
+data$R_suplord <- as.logical(c(rep(0,2000),(results_suplord$R)))
+data$R_pLRAI <- as.logical(c(rep(0,2000),(results_pL$R)))
+data$R_pSRAI<- as.logical(c(rep(0,2000),(results_pS$R)))
+data$R_elord <- as.logical(c(rep(0,2000),(results_elord$R)))
+data$R_eSAFFRON <- as.logical(c(rep(0,2000),(results_eSAFFRON$R)))
+data$R_elond <- as.logical(c(rep(0,2000),(results_elond$R)))
+
+
+anomaly_data <- data.frame(
+  # xmin = c("2014-10-31 00:12:00", "2014-11-25 00:17:00", "2014-12-23 17:00:00", "2014-12-29 00:00:00", "2015-01-26 12:00:00"),
+  # xmax = c("2014-11-02 18:00:00", "2014-11-28 23:30:00", "2014-12-26 23:30:00", "2015-01-02 23:30:00", "2015-01-27 23:30:00"),
+  xmin = c("2014-10-31 00:12:00", "2014-11-25 00:17:00", "2014-12-23 12:00:00", "2014-12-29 00:00:00", "2015-01-26 12:00:00"),
+  xmax = c("2014-11-02 18:00:00", "2014-11-29 00:12:00", "2014-12-27 12:00:00", "2015-01-02 23:30:00", "2015-01-27 23:30:00"),
+  ymin = -Inf, 
+  ymax = Inf    
+)
+
+
+data4 <- subset(data, timestamp > "2014-10-30" & timestamp <= "2015-02-16")
+data4 <- data4[order(as.POSIXct(data4$timestamp)), ]
+
+date_labels <- seq(as.Date("2014-11-01"), as.Date("2015-02-16"), by = "1 day")
+date_labels <- date_labels[format(date_labels, "%d") %in% c("01", "15")]
+
+
+
+p1 <- ggplot(data4, aes(x = as.POSIXct(timestamp), y = value)) +
+  geom_line(aes(group = 1), color = "gray30", size = 0.5) +
+  geom_smooth(method = "loess", formula = y ~ x, aes(group = 1), color = "#003366", se = FALSE, size = 0.8) +
+  geom_rect(data = anomaly_data,
+            aes(xmin = as.POSIXct(xmin), xmax = as.POSIXct(xmax), ymin = ymin, ymax = ymax),
+            fill = "#FFC0CB", alpha = 0.3, inherit.aes = FALSE) +
+  geom_point(data = subset(data4, R_elord == TRUE), aes(x = as.POSIXct(timestamp), y = value), 
+             color = "#8B0000", size = 0.8) +
+  labs(
+    y = "Remainder", 
+    x = "Timestamp"
+  ) +
+  scale_x_datetime(
+    breaks = as.POSIXct(date_labels),
+    labels = format(date_labels, "%b-%d-%Y")
+  ) +
+  theme_minimal(base_size = 10) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "white"),
+    panel.grid.major = element_line(color = "gray85"),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    legend.text = element_text(size = 8)
+  )
+
+p2 <- ggplot(data4, aes(x = as.POSIXct(timestamp), y = value)) +
+  geom_line(aes(group = 1), color = "gray30", size = 0.5) +
+  geom_smooth(method = "loess", formula = y ~ x, aes(group = 1), color = "#003366", se = FALSE, size = 0.8) +
+  geom_rect(data = anomaly_data,
+            aes(xmin = as.POSIXct(xmin), xmax = as.POSIXct(xmax), ymin = ymin, ymax = ymax),
+            fill = "#FFC0CB", alpha = 0.3, inherit.aes = FALSE) +
+  geom_point(data = subset(data4, R_eSAFFRON == TRUE), aes(x = as.POSIXct(timestamp), y = value), 
+             color = "#8B0000", size = 0.8) +
+  labs(
+    y = "Remainder", 
+    x = "Timestamp"
+  ) +
+  scale_x_datetime(
+    breaks = as.POSIXct(date_labels),
+    labels = format(date_labels, "%b-%d-%Y")
+  ) +
+  theme_minimal(base_size = 10) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "white"),
+    panel.grid.major = element_line(color = "gray85"),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    legend.text = element_text(size = 8)
+  )
+
+p3 <- ggplot(data4, aes(x = as.POSIXct(timestamp), y = value)) +
+  geom_line(aes(group = 1), color = "gray30", size = 0.5) +
+  geom_smooth(method = "loess", formula = y ~ x, aes(group = 1), color = "#003366", se = FALSE, size = 0.8) +
+  geom_rect(data = anomaly_data,
+            aes(xmin = as.POSIXct(xmin), xmax = as.POSIXct(xmax), ymin = ymin, ymax = ymax),
+            fill = "#FFC0CB", alpha = 0.3, inherit.aes = FALSE) +
+  geom_point(data = subset(data4, R_elond == TRUE), aes(x = as.POSIXct(timestamp), y = value), 
+             color = "#8B0000", size = 0.8) +
+  labs(
+    y = "Remainder", 
+    x = "Timestamp"
+  ) +
+  scale_x_datetime(
+    breaks = as.POSIXct(date_labels),
+    labels = format(date_labels, "%b-%d-%Y")
+  ) +
+  theme_minimal(base_size = 10) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "white"),
+    panel.grid.major = element_line(color = "gray85"),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    legend.text = element_text(size = 8)
+  )
+p4 <- ggplot(data4, aes(x = as.POSIXct(timestamp), y = value)) +
+  geom_line(aes(group = 1), color = "gray30", size = 0.5) +
+  geom_smooth(method = "loess", formula = y ~ x, aes(group = 1), color = "#003366", se = FALSE, size = 0.8) +
+  geom_rect(data = anomaly_data,
+            aes(xmin = as.POSIXct(xmin), xmax = as.POSIXct(xmax), ymin = ymin, ymax = ymax),
+            fill = "#FFC0CB", alpha = 0.3, inherit.aes = FALSE) +
+  geom_point(data = subset(data4, R_plRAI == TRUE), aes(x = as.POSIXct(timestamp), y = value), 
+             color = "#8B0000", size = 0.8) +
+  labs(
+    y = "Remainder", 
+    x = "Timestamp"
+  ) +
+  scale_x_datetime(
+    breaks = as.POSIXct(date_labels),
+    labels = format(date_labels, "%b-%d-%Y")
+  ) +
+  theme_minimal(base_size = 10) +
+  theme_bw()+
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "white"),
+    panel.grid.major = element_line(color = "gray85"),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    legend.text = element_text(size = 8)
+  )
+
+p5 <- ggplot(data4, aes(x = as.POSIXct(timestamp), y = value)) +
+  geom_line(aes(group = 1), color = "gray30", size = 0.5) +
+  geom_smooth(method = "loess", formula = y ~ x, aes(group = 1), color = "#003366", se = FALSE, size = 0.8) +
+  geom_rect(data = anomaly_data,
+            aes(xmin = as.POSIXct(xmin), xmax = as.POSIXct(xmax), ymin = ymin, ymax = ymax),
+            fill = "#FFC0CB", alpha = 0.3, inherit.aes = FALSE) +
+  geom_point(data = subset(data4, R_pSRAI == TRUE), aes(x = as.POSIXct(timestamp), y = value), 
+             color = "#8B0000", size = 0.8) +
+  labs(
+    y = "Remainder", 
+    x = "Timestamp"
+  ) +
+  scale_x_datetime(
+    breaks = as.POSIXct(date_labels),
+    labels = format(date_labels, "%m-%d-%Y")
+  ) +
+  theme_minimal(base_size = 10) +
+  theme_bw()+
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "white"),
+    panel.grid.major = element_line(color = "gray85"),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    legend.text = element_text(size = 8)
+  )
+
+p6 <- ggplot(data4, aes(x = as.POSIXct(timestamp), y = value)) +
+  geom_line(aes(group = 1), color = "gray30", size = 0.5) +
+  geom_smooth(method = "loess", formula = y ~ x, aes(group = 1), color = "#003366", se = FALSE, size = 0.8) +
+  geom_rect(data = anomaly_data,
+            aes(xmin = as.POSIXct(xmin), xmax = as.POSIXct(xmax), ymin = ymin, ymax = ymax),
+            fill = "#FFC0CB", alpha = 0.3, inherit.aes = FALSE) +
+  geom_point(data = subset(data4, R_lord == TRUE), aes(x = as.POSIXct(timestamp), y = value), 
+             color = "#8B0000", size = 0.8) +
+  labs(
+    
+    y = "Remainder", 
+    x = "Timestamp"
+  ) +
+  scale_x_datetime(
+    breaks = as.POSIXct(date_labels),
+    labels = format(date_labels, "%b-%d-%Y")
+  ) +
+  theme_minimal(base_size = 10) +
+  theme_bw()+
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "white"),
+    panel.grid.major = element_line(color = "gray85"),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    legend.text = element_text(size = 8)
+  )
+
+p7 <- ggplot(data4, aes(x = as.POSIXct(timestamp), y = value)) +
+  geom_line(aes(group = 1), color = "gray30", size = 0.5) +
+  geom_smooth(method = "loess", formula = y ~ x, aes(group = 1), color = "#003366", se = FALSE, size = 0.8) +
+  geom_rect(data = anomaly_data,
+            aes(xmin = as.POSIXct(xmin), xmax = as.POSIXct(xmax), ymin = ymin, ymax = ymax),
+            fill = "#FFC0CB", alpha = 0.3, inherit.aes = FALSE) +
+  geom_point(data = subset(data4, R_SAFFRON == TRUE), aes(x = as.POSIXct(timestamp), y = value), 
+             color = "#8B0000", size = 0.8) +
+  labs(
+    #title = "Abnomalies marked by SAFFRON procedure",
+    y = "Remainder", 
+    x = "Timestamp"
+  ) +
+  scale_x_datetime(
+    breaks = as.POSIXct(date_labels),
+    labels = format(date_labels, "%m-%d-%Y")
+  ) +
+  theme_minimal(base_size = 10) +
+  theme_bw()+
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "white"),
+    panel.grid.major = element_line(color = "gray85"),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    legend.text = element_text(size = 8)
+  )
+
+p8 <- ggplot(data4, aes(x = as.POSIXct(timestamp), y = value)) +
+  geom_line(aes(group = 1), color = "gray30", size = 0.5) +
+  geom_smooth(method = "loess", formula = y ~ x, aes(group = 1), color = "#003366", se = FALSE, size = 0.8) +
+  geom_rect(data = anomaly_data,
+            aes(xmin = as.POSIXct(xmin), xmax = as.POSIXct(xmax), ymin = ymin, ymax = ymax),
+            fill = "#FFC0CB", alpha = 0.3, inherit.aes = FALSE) +
+  geom_point(data = subset(data4, R_suplord == TRUE), aes(x = as.POSIXct(timestamp), y = value), 
+             color = "#8B0000", size = 0.8) +
+  labs(
+    #title = "Abnomalies marked by SAFFRON procedure",
+    y = "Remainder", 
+    x = "Timestamp"
+  ) +
+  scale_x_datetime(
+    breaks = as.POSIXct(date_labels),
+    labels = format(date_labels, "%m-%d-%Y")
+  ) +
+  theme_minimal(base_size = 10) +
+  theme_bw()+
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "white"),
+    panel.grid.major = element_line(color = "gray85"),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    legend.text = element_text(size = 8)
+  )
+
+
+p1 <- p1 + ggtitle(NULL, subtitle = "Abnomalies marked by e-LORD procedure")
+p2 <- p2 + ggtitle(NULL, subtitle = "Abnomalies marked by e-SAFFRON procedure")
+p3 <- p3 + ggtitle(NULL, subtitle = "Abnomalies marked by e-LOND procedure")
+p4 <- p4 + ggtitle(NULL, subtitle = "Abnomalies marked by pL-RAI procedure")
+p5 <- p5 + ggtitle(NULL, subtitle = "Abnomalies marked by pS-RAI procedure")
+p6 <- p4 + ggtitle(NULL, subtitle = "Abnomalies marked by LORD++ procedure")
+p7 <- p5 + ggtitle(NULL, subtitle = "Abnomalies marked by SAFFRON procedure")
+p8 <- p5 + ggtitle(NULL, subtitle = "Abnomalies marked by SupLORD procedure")
+}
+```
+
+###Real Data 5.3
+```{r}
+library(tidyquant)
+nasdaq_data <- tq_get("NASDAQCOM", from = "1970-01-01", to = "2008-12-31", get = "economic.data")
+
+data_daily<- nasdaq_data[!is.na(nasdaq_data$price),]
+
+data2 <- data_daily$price
+
+data_weekly <- nasdaq_data %>%
+  tq_transmute(select = price, 
+               mutate_fun = to.period, 
+               period = "weeks", 
+               col_rename = "weekly_price")
+colnames(data_weekly)[2] <- "price"
+
+ncal <- round(1/3*length(data2))
+X_calib2<-  data2[1:ncal]
+X_test2 <- data2[-(1:ncal)]
+
+Z2 <- data2
+Z02 <- X_calib2
+
+ntest <- length(X_test2)
+init2 <- ncal
+
+m2 <- length(Z2)
+h <- 10
+N <- floor(10*h)
+f_t2 <- rep(0,ntest)
+
+alpha = 0.01
+n_min <- 100
+p_values2 <- numeric(ntest)
+
+for(i in (init2+1):m2){
+  adf_result <- ur.df(Z2[max(1, (i - n_min)):i],type = "drift", lags = 1)
+  p_values2[i-init2] <- summary(adf_result)@testreg$coefficients["z.lag.1", "Pr(>|t|)"]
+}
+
+e_LR2 <- numeric(ntest)
+for(i in (init2+1):m2){
+  Y_tmp2 <- Z2[(i-n_min+2):i]
+  Y_tmp <- Z2[(i-n_min+1):(i-1)]
+  X_tmp <- t(rbind(rep(1,(n_min-1)),(seq(1,(n_min-1))-n_min/2),Y_tmp))
+  Se2 <- 1/(n_min-4)*t(Y_tmp)%*%(diag(n_min-1)-X_tmp%*%solve(t(X_tmp)%*%X_tmp)%*%t(X_tmp))%*%Y_tmp
+  sigma02 <- 1/(n_min-1)*sum(Y_tmp2-Y_tmp)^2
+  phi2 <- 1/(3*Se2)*((n_min-1)*sigma02)-(n_min-4)/3
+  phi3 <- 1/(2*Se2)*((n_min-1)*(sigma02-mean(Y_tmp2-Y_tmp)^2))-(n_min-4)/2
+  e_LR2[i-init2] <- (pmax(0,1+3/(n_min-4)*phi2))^(1/2)
+}
+input_e_LR2 <- data.frame(eval = e_LR2)
+input_p2 <- as.data.frame(p_values2)
+
+results_eSAFFRON2 <- eSAFFRON(input_e_LR2, alpha = alpha, random = F, lambda=0.2, rho_reward = 0.2, rho_penalty = 0.2)
+results_elord2 <- eLORD(input_e_LR2, alpha = alpha, random = F)#, lambda=0.1)#, adjust = T, threshold = threshold)
+results_elond2 <- eLOND(evec = e_LR2, delta = alpha)
+
+data_daily$R_eSAFFRON2 <- as.logical(c(rep(0,ncal),(results_eSAFFRON2$R)))
+data_daily$R_elord2 <- as.logical(c(rep(0,ncal),(results_elord2$R)))
+data_daily$R_elond2 <- as.logical(c(rep(0,ncal),(results_elond2$R)))
+
+anomaly_data <- data.frame(
+  xmin = c("1990-07-15", "1995-06-15", "2008-01-15"),
+  xmax = c("1993-04-15", "2007-12-15", "2008-12-31"),
+  ymin = -Inf, 
+  ymax = Inf  
+)
+
+anomaly_data2 <- data.frame(
+  xmin = c("1983-09-15"),
+  xmax = c("1984-07-15"),
+  ymin = -Inf,
+  ymax = Inf   
+)
+
+
+p_realdata_2 <- ggplot(data_daily, aes(x = date, y = price)) +
+  geom_line(aes(group = 1), color = "gray30", size = 0.5) +
+  geom_vline(xintercept = as.Date(c("1998-02-27", "2003-02-20")), color = "#6495ED", linetype = "dashed", size = 0.8) +
+  geom_rect(data = anomaly_data, aes(xmin = as.Date(xmin), xmax = as.Date(xmax), ymin=ymin, ymax=ymax), fill = "#00BFFF", alpha = 0.2, inherit.aes = FALSE) +
+  geom_rect(data = anomaly_data2, aes(xmin = as.Date(xmin), xmax = as.Date(xmax), ymin=ymin, ymax=ymax), fill = "#CD5C5C", alpha = 0.2, inherit.aes = FALSE) +
+  geom_point(data = subset(data_daily, R_eSAFFRON2== TRUE), aes(x = date, y = price), 
+             color = "#003366", size = 0.4) +
+  labs(
+    #title = "Dating Bubble via e-SAFFRON in Nasdaq",
+    y = "Stock Price", 
+    x = "Date"
+  ) +
+  scale_x_date(name = "Date", date_labels = "%m-%Y", date_breaks = "5 year",)+
+
+  theme_minimal(base_size = 10) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "white"),
+    panel.grid.major = element_line(color = "gray85"),
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom",
+    legend.text = element_text(size = 8),
+    axis.line = element_blank()
+  )
+```
