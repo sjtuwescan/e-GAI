@@ -113,8 +113,8 @@ one.exper <- function(
     "mem_e_LORD", "mem_e_SAFFRON", "mem_LORDpp",
     "e_LORD", "e_SAFFRON",
     "mem_e_LORD_reset", "mem_e_SAFFRON_reset", "mem_LORDpp_reset",
-    "mem_cp_LORD", "mem_cp_SAFFRON",
-    "mem_cp_LORD_reset", "mem_cp_SAFFRON_reset"
+    "mem_pL_RAI", "mem_pS_RAI",
+    "mem_pL_RAI_reset", "mem_pS_RAI_reset"
   )
   rej_list  <- vector("list", length(methods))
   names(rej_list) <- methods
@@ -258,7 +258,7 @@ one.exper <- function(
   }
   rej_list$mem_LORDpp_reset <- rr$R
   
-  # --------------- mem-cp-LORD ---------------------
+  # --------------- mem-pL-RAI ---------------------
   c0 <- init_vectors()
   c0$gamma[1] <- init.omega
   c0$level[1] <- init.omega * alpha
@@ -276,9 +276,9 @@ one.exper <- function(
     c0$dcum     <- d * c0$dcum + c0$rej[j]
     c0$cum      <- c0$cum + c0$rej[j]
   }
-  rej_list$mem_cp_LORD <- c0$rej
+  rej_list$mem_pL_RAI <- c0$rej
   
-  # ------------- mem-cp-SAFFRON --------------------
+  # ------------- mem-pS-RAI --------------------
   c1 <- init_vectors()
   c1$gamma[1] <- init.omega
   c1$level[1] <- init.omega * alpha * (1 - lambda)
@@ -296,9 +296,9 @@ one.exper <- function(
     c1$dcum     <- d * c1$dcum + c1$rej[j]
     c1$cum      <- c1$cum + c1$rej[j]
   }
-  rej_list$mem_cp_SAFFRON <- c1$rej
+  rej_list$mem_pS_RAI <- c1$rej
   
-  # --------- mem-cp-LORD-reset --------------------
+  # --------- mem-pL-RAI-reset --------------------
   cr0 <- c0; cr0$resets <- 0
   for (j in seq_len(t)) {
     if (cr0$level[j]/alpha < epsilon.a && cr0$dcum < epsilon.r) {
@@ -309,9 +309,9 @@ one.exper <- function(
       cr0$resets   <- cr0$resets + 1
     }
   }
-  rej_list$mem_cp_LORD_reset <- cr0$rej
+  rej_list$mem_pL_RAI_reset <- cr0$rej
   
-  # ------- mem-cp-SAFFRON-reset ------------------
+  # ------- mem-pS-RAI-reset ------------------
   cr1 <- c1; cr1$resets <- 0
   for (j in seq_len(t)) {
     if (cr1$level[j]/alpha < epsilon.a && cr1$dcum < epsilon.r) {
@@ -322,7 +322,7 @@ one.exper <- function(
       cr1$resets   <- cr1$resets + 1
     }
   }
-  rej_list$mem_cp_SAFFRON_reset <- cr1$rej
+  rej_list$mem_pS_RAI_reset <- cr1$rej
 
   FDPs <- sapply(methods, function(m) cal.dFDP(out.loc, rej_list[[m]], t, d))
   MDPs <- sapply(methods, function(m) cal.dMDP(out.loc, rej_list[[m]], t, d))
@@ -407,10 +407,10 @@ full_value_names <- col_names <- c(
   "dFDP_mem_e_LORD_reset",
   "dFDP_mem_e_SAFFRON_reset",
   "dFDP_mem_LORDpp_reset",
-  "dFDP_mem_cp_LORD",
-  "dFDP_mem_cp_SAFFRON",
-  "dFDP_mem_cp_LORD_reset",
-  "dFDP_mem_cp_SAFFRON_reset",
+  "dFDP_mem_pL_RAI",
+  "dFDP_mem_pS_RAI",
+  "dFDP_mem_pL_RAI_reset",
+  "dFDP_mem_pS_RAI_reset",
   "dMDP_mem_e_LORD",
   "dMDP_mem_e_SAFFRON",
   "dMDP_mem_LORDpp",
@@ -419,10 +419,10 @@ full_value_names <- col_names <- c(
   "dMDP_mem_e_LORD_reset",
   "dMDP_mem_e_SAFFRON_reset",
   "dMDP_mem_LORDpp_reset",
-  "dMDP_mem_cp_LORD",
-  "dMDP_mem_cp_SAFFRON",
-  "dMDP_mem_cp_LORD_reset",
-  "dMDP_mem_cp_SAFFRON_reset",
+  "dMDP_mem_pL_RAI",
+  "dMDP_mem_pS_RAI",
+  "dMDP_mem_pL_RAI_reset",
+  "dMDP_mem_pS_RAI_reset",
   "SE_dFDP_mem_e_LORD",
   "SE_dFDP_mem_e_SAFFRON",
   "SE_dFDP_mem_LORDpp",
@@ -431,10 +431,10 @@ full_value_names <- col_names <- c(
   "SE_dFDP_mem_e_LORD_reset",
   "SE_dFDP_mem_e_SAFFRON_reset",
   "SE_dFDP_mem_LORDpp_reset",
-  "SE_dFDP_mem_cp_LORD",
-  "SE_dFDP_mem_cp_SAFFRON",
-  "SE_dFDP_mem_cp_LORD_reset",
-  "SE_dFDP_mem_cp_SAFFRON_reset",
+  "SE_dFDP_mem_pL_RAI",
+  "SE_dFDP_mem_pS_RAI",
+  "SE_dFDP_mem_pL_RAI_reset",
+  "SE_dFDP_mem_pS_RAI_reset",
   "SE_dMDP_mem_e_LORD",
   "SE_dMDP_mem_e_SAFFRON",
   "SE_dMDP_mem_LORDpp",
@@ -443,10 +443,10 @@ full_value_names <- col_names <- c(
   "SE_dMDP_mem_e_LORD_reset",
   "SE_dMDP_mem_e_SAFFRON_reset",
   "SE_dMDP_mem_LORDpp_reset",
-  "SE_dMDP_mem_cp_LORD",
-  "SE_dMDP_mem_cp_SAFFRON",
-  "SE_dMDP_mem_cp_LORD_reset",
-  "SE_dMDP_mem_cp_SAFFRON_reset"
+  "SE_dMDP_mem_pL_RAI",
+  "SE_dMDP_mem_pS_RAI",
+  "SE_dMDP_mem_pL_RAI_reset",
+  "SE_dMDP_mem_pS_RAI_reset"
 )
 
 

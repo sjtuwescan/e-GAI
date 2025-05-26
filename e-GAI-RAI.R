@@ -95,23 +95,23 @@ one.exper <- function(
   p <- p
   e <- e
 
-  rej.elond    <- rep(0, t)
-  rej.ours     <- rep(0, t)
-  rej.ours0    <- rep(0, t)
-  rej.ours.p   <- rep(0, t)
-  rej.ours0.p  <- rep(0, t)
+  rej.eLOND    <- rep(0, t)
+  rej.eSAFFRON     <- rep(0, t)
+  rej.eLORD    <- rep(0, t)
+  rej.pS_RAI   <- rep(0, t)
+  rej.pL_RAI  <- rep(0, t)
   
-  gamma.elond   <- rep(0, t)
-  gamma.ours    <- rep(0, t)
-  gamma.ours0   <- rep(0, t)
-  gamma.ours.p  <- rep(0, t)
-  gamma.ours0.p <- rep(0, t)
+  gamma.eLOND   <- rep(0, t)
+  gamma.eSAFFRON    <- rep(0, t)
+  gamma.eLORD   <- rep(0, t)
+  gamma.pS_RAI  <- rep(0, t)
+  gamma.pL_RAI <- rep(0, t)
   
-  level.elond   <- rep(0, t)
-  level.ours    <- rep(0, t)
-  level.ours0   <- rep(0, t)
-  level.ours.p  <- rep(0, t)
-  level.ours0.p <- rep(0, t)
+  level.eLOND   <- rep(0, t)
+  level.eSAFFRON    <- rep(0, t)
+  level.eLORD   <- rep(0, t)
+  level.pS_RAI  <- rep(0, t)
+  level.pL_RAI <- rep(0, t)
   
   ## GAI
   start.LORD <- proc.time()
@@ -128,140 +128,140 @@ one.exper <- function(
   time.suplord <- (proc.time() - start.suplord)[["elapsed"]]
   
   ## e-LOND
-  start.elond <- proc.time()
+  start.eLOND <- proc.time()
   j <- 1
-  gamma.elond[j] <- 1 / (j * (j + 1))
-  level.elond[j] <- alpha * gamma.elond[j]
-  rej.elond[j] <- round(e[j] > 1 / level.elond[j])
+  gamma.eLOND[j] <- 1 / (j * (j + 1))
+  level.eLOND[j] <- alpha * gamma.eLOND[j]
+  rej.eLOND[j] <- round(e[j] > 1 / level.eLOND[j])
   for (j in 2:t) {
-    gamma.elond[j] <- 1 / (j * (j + 1))
-    level.elond[j] <- alpha * gamma.elond[j] * (sum(rej.elond[1:(j - 1)]) + 1)
-    rej.elond[j] <- round(e[j] > 1 / level.elond[j])
+    gamma.eLOND[j] <- 1 / (j * (j + 1))
+    level.eLOND[j] <- alpha * gamma.eLOND[j] * (sum(rej.eLOND[1:(j - 1)]) + 1)
+    rej.eLOND[j] <- round(e[j] > 1 / level.eLOND[j])
   }
-  time.elond <- (proc.time() - start.elond)[["elapsed"]]
+  time.eLOND <- (proc.time() - start.eLOND)[["elapsed"]]
   
-  ## Ours: e-LORD
-  cum.rej.ours0 <- 0
-  rem.rej.ours0 <- 0
-  start.ours0 <- proc.time()
+  ## eSAFFRON: e-LORD
+  cum.rej.eLORD <- 0
+  rem.rej.eLORD <- 0
+  start.eLORD <- proc.time()
   j <- 1
-  gamma.ours0[j] <- init.omega
-  level.ours0[j] <- gamma.ours0[j] * alpha
-  rej.ours0[j] <- round(e[j] > 1 / level.ours0[j])
-  cum.rej.ours0 <- rej.ours0[j]
-  rem.rej.ours0 <- alpha - level.ours0[j]
+  gamma.eLORD[j] <- init.omega
+  level.eLORD[j] <- gamma.eLORD[j] * alpha
+  rej.eLORD[j] <- round(e[j] > 1 / level.eLORD[j])
+  cum.rej.eLORD <- rej.eLORD[j]
+  rem.rej.eLORD <- alpha - level.eLORD[j]
   for (j in 2:t) {
-    gamma.ours0[j] <- gamma.ours0[j - 1] + init.omega * penalty.omega^(j - 1 - cum.rej.ours0) * (1 - rej.ours0[j - 1]) -
-      init.omega * reward.omega^(cum.rej.ours0) * rej.ours0[j - 1]
-    level.ours0[j] <- gamma.ours0[j] * rem.rej.ours0 * (cum.rej.ours0 + 1)
-    if (is.na(level.ours0[j])) {
-      level.ours0[j] <- 0
+    gamma.eLORD[j] <- gamma.eLORD[j - 1] + init.omega * penalty.omega^(j - 1 - cum.rej.eLORD) * (1 - rej.eLORD[j - 1]) -
+      init.omega * reward.omega^(cum.rej.eLORD) * rej.eLORD[j - 1]
+    level.eLORD[j] <- gamma.eLORD[j] * rem.rej.eLORD * (cum.rej.eLORD + 1)
+    if (is.na(level.eLORD[j])) {
+      level.eLORD[j] <- 0
     }
-    rej.ours0[j] <- round(e[j] > 1 / level.ours0[j])
-    rem.rej.ours0 <- rem.rej.ours0 - level.ours0[j] / (cum.rej.ours0 + 1)
-    cum.rej.ours0 <- cum.rej.ours0 + rej.ours0[j]
+    rej.eLORD[j] <- round(e[j] > 1 / level.eLORD[j])
+    rem.rej.eLORD <- rem.rej.eLORD - level.eLORD[j] / (cum.rej.eLORD + 1)
+    cum.rej.eLORD <- cum.rej.eLORD + rej.eLORD[j]
   }
-  time.ours0 <- (proc.time() - start.ours0)[["elapsed"]]
+  time.eLORD <- (proc.time() - start.eLORD)[["elapsed"]]
   
-  ## Ours0.p: conditional-p-LORD
-  cum.rej.ours0.p <- 0
-  rem.rej.ours0.p <- 0
-  start.ours0.p <- proc.time()
+  ## pL_RAI: pL-RAI
+  cum.rej.pL_RAI <- 0
+  rem.rej.pL_RAI <- 0
+  start.pL_RAI <- proc.time()
   j <- 1
-  gamma.ours0.p[j] <- init.omega
-  level.ours0.p[j] <- gamma.ours0.p[j] * alpha
-  rej.ours0.p[j] <- round(p[j] <= level.ours0.p[j])
-  cum.rej.ours0.p <- rej.ours0.p[j]
-  rem.rej.ours0.p <- alpha - level.ours0.p[j]
+  gamma.pL_RAI[j] <- init.omega
+  level.pL_RAI[j] <- gamma.pL_RAI[j] * alpha
+  rej.pL_RAI[j] <- round(p[j] <= level.pL_RAI[j])
+  cum.rej.pL_RAI <- rej.pL_RAI[j]
+  rem.rej.pL_RAI <- alpha - level.pL_RAI[j]
   for (j in 2:t) {
-    gamma.ours0.p[j] <- gamma.ours0.p[j - 1] + init.omega * penalty.omega^(j - 1 - cum.rej.ours0.p) * (1 - rej.ours0.p[j - 1]) -
-      init.omega * reward.omega^(cum.rej.ours0.p) * rej.ours0.p[j - 1]
-    level.ours0.p[j] <- gamma.ours0.p[j] * rem.rej.ours0.p * (cum.rej.ours0.p + 1)
-    if (is.na(level.ours0.p[j])) {
-      level.ours0.p[j] <- 0
+    gamma.pL_RAI[j] <- gamma.pL_RAI[j - 1] + init.omega * penalty.omega^(j - 1 - cum.rej.pL_RAI) * (1 - rej.pL_RAI[j - 1]) -
+      init.omega * reward.omega^(cum.rej.pL_RAI) * rej.pL_RAI[j - 1]
+    level.pL_RAI[j] <- gamma.pL_RAI[j] * rem.rej.pL_RAI * (cum.rej.pL_RAI + 1)
+    if (is.na(level.pL_RAI[j])) {
+      level.pL_RAI[j] <- 0
     }
-    rej.ours0.p[j] <- round(p[j] <= level.ours0.p[j])
-    rem.rej.ours0.p <- rem.rej.ours0.p - level.ours0.p[j] / (cum.rej.ours0.p + 1)
-    cum.rej.ours0.p <- cum.rej.ours0.p + rej.ours0.p[j]
+    rej.pL_RAI[j] <- round(p[j] <= level.pL_RAI[j])
+    rem.rej.pL_RAI <- rem.rej.pL_RAI - level.pL_RAI[j] / (cum.rej.pL_RAI + 1)
+    cum.rej.pL_RAI <- cum.rej.pL_RAI + rej.pL_RAI[j]
   }
-  time.ours0.p <- (proc.time() - start.ours0.p)[["elapsed"]]
+  time.pL_RAI <- (proc.time() - start.pL_RAI)[["elapsed"]]
   
-  ## Ours: e-SAFFRON
-  cum.rej.ours <- 0
-  rem.rej.ours <- 0
-  start.ours <- proc.time()
+  ## eSAFFRON: e-SAFFRON
+  cum.rej.eSAFFRON <- 0
+  rem.rej.eSAFFRON <- 0
+  start.eSAFFRON <- proc.time()
   j <- 1
-  gamma.ours[j] <- init.omega
-  level.ours[j] <- gamma.ours[j] * alpha * (1 - lambda)
-  rej.ours[j] <- round(e[j] > 1 / level.ours[j])
-  cum.rej.ours <- rej.ours[j]
-  rem.rej.ours <- alpha * (1 - lambda) - level.ours[j] * round(e[j] < 1 / lambda)
+  gamma.eSAFFRON[j] <- init.omega
+  level.eSAFFRON[j] <- gamma.eSAFFRON[j] * alpha * (1 - lambda)
+  rej.eSAFFRON[j] <- round(e[j] > 1 / level.eSAFFRON[j])
+  cum.rej.eSAFFRON <- rej.eSAFFRON[j]
+  rem.rej.eSAFFRON <- alpha * (1 - lambda) - level.eSAFFRON[j] * round(e[j] < 1 / lambda)
   for (j in 2:t) {
-    gamma.ours[j] <- gamma.ours[j - 1] + init.omega * penalty.omega^(j - 1 - cum.rej.ours) * (1 - rej.ours[j - 1]) -
-      init.omega * reward.omega^(cum.rej.ours) * rej.ours[j - 1]
-    level.ours[j] <- gamma.ours[j] * rem.rej.ours * (cum.rej.ours + 1)
-    if (is.na(level.ours[j])) {
-      level.ours[j] <- 0
+    gamma.eSAFFRON[j] <- gamma.eSAFFRON[j - 1] + init.omega * penalty.omega^(j - 1 - cum.rej.eSAFFRON) * (1 - rej.eSAFFRON[j - 1]) -
+      init.omega * reward.omega^(cum.rej.eSAFFRON) * rej.eSAFFRON[j - 1]
+    level.eSAFFRON[j] <- gamma.eSAFFRON[j] * rem.rej.eSAFFRON * (cum.rej.eSAFFRON + 1)
+    if (is.na(level.eSAFFRON[j])) {
+      level.eSAFFRON[j] <- 0
     }
-    rej.ours[j] <- round(e[j] > 1 / level.ours[j])
-    rem.rej.ours <- rem.rej.ours - round(e[j] < 1 / lambda) * level.ours[j] / (cum.rej.ours + 1)
-    cum.rej.ours <- cum.rej.ours + rej.ours[j]
+    rej.eSAFFRON[j] <- round(e[j] > 1 / level.eSAFFRON[j])
+    rem.rej.eSAFFRON <- rem.rej.eSAFFRON - round(e[j] < 1 / lambda) * level.eSAFFRON[j] / (cum.rej.eSAFFRON + 1)
+    cum.rej.eSAFFRON <- cum.rej.eSAFFRON + rej.eSAFFRON[j]
   }
-  time.ours <- (proc.time() - start.ours)[["elapsed"]]
+  time.eSAFFRON <- (proc.time() - start.eSAFFRON)[["elapsed"]]
   
-  ## Ours.p: conditional-p-SAFFRON
-  cum.rej.ours.p <- 0
-  rem.rej.ours.p <- 0
-  start.ours.p <- proc.time()
+  ## pS_RAI: pS-RAI
+  cum.rej.pS_RAI <- 0
+  rem.rej.pS_RAI <- 0
+  start.pS_RAI <- proc.time()
   j <- 1
-  gamma.ours.p[j] <- init.omega
-  level.ours.p[j] <- gamma.ours.p[j] * alpha * (1 - lambda)
-  rej.ours.p[j] <- round(p[j] <= level.ours.p[j])
-  cum.rej.ours.p <- rej.ours.p[j]
-  rem.rej.ours.p <- alpha * (1 - lambda) - level.ours.p[j] * round(p[j] > lambda)
+  gamma.pS_RAI[j] <- init.omega
+  level.pS_RAI[j] <- gamma.pS_RAI[j] * alpha * (1 - lambda)
+  rej.pS_RAI[j] <- round(p[j] <= level.pS_RAI[j])
+  cum.rej.pS_RAI <- rej.pS_RAI[j]
+  rem.rej.pS_RAI <- alpha * (1 - lambda) - level.pS_RAI[j] * round(p[j] > lambda)
   for (j in 2:t) {
-    gamma.ours.p[j] <- gamma.ours.p[j - 1] + init.omega * penalty.omega^(j - 1 - cum.rej.ours.p) * (1 - rej.ours.p[j - 1]) -
-      init.omega * reward.omega^(cum.rej.ours.p) * rej.ours.p[j - 1]
-    level.ours.p[j] <- gamma.ours.p[j] * rem.rej.ours.p * (cum.rej.ours.p + 1)
-    if (is.na(level.ours.p[j])) {
-      level.ours.p[j] <- 0
+    gamma.pS_RAI[j] <- gamma.pS_RAI[j - 1] + init.omega * penalty.omega^(j - 1 - cum.rej.pS_RAI) * (1 - rej.pS_RAI[j - 1]) -
+      init.omega * reward.omega^(cum.rej.pS_RAI) * rej.pS_RAI[j - 1]
+    level.pS_RAI[j] <- gamma.pS_RAI[j] * rem.rej.pS_RAI * (cum.rej.pS_RAI + 1)
+    if (is.na(level.pS_RAI[j])) {
+      level.pS_RAI[j] <- 0
     }
-    rej.ours.p[j] <- round(p[j] <= level.ours.p[j])
-    rem.rej.ours.p <- rem.rej.ours.p - round(p[j] > lambda) * level.ours.p[j] / (cum.rej.ours.p + 1)
-    cum.rej.ours.p <- cum.rej.ours.p + rej.ours.p[j]
+    rej.pS_RAI[j] <- round(p[j] <= level.pS_RAI[j])
+    rem.rej.pS_RAI <- rem.rej.pS_RAI - round(p[j] > lambda) * level.pS_RAI[j] / (cum.rej.pS_RAI + 1)
+    cum.rej.pS_RAI <- cum.rej.pS_RAI + rej.pS_RAI[j]
   }
-  time.ours.p <- (proc.time() - start.ours.p)[["elapsed"]]
+  time.pS_RAI <- (proc.time() - start.pS_RAI)[["elapsed"]]
   
   j <- t
   FDPs <- c(
-    cal.FDP(out.loc[1:j], rej.ours0[1:j], j),
-    cal.FDP(out.loc[1:j], rej.ours[1:j], j),
-    cal.FDP(out.loc[1:j], rej.ours0.p[1:j], j),
-    cal.FDP(out.loc[1:j], rej.ours.p[1:j], j),
-    cal.FDP(out.loc[1:j], rej.elond[1:j], j),
+    cal.FDP(out.loc[1:j], rej.eLORD[1:j], j),
+    cal.FDP(out.loc[1:j], rej.eSAFFRON[1:j], j),
+    cal.FDP(out.loc[1:j], rej.pL_RAI[1:j], j),
+    cal.FDP(out.loc[1:j], rej.pS_RAI[1:j], j),
+    cal.FDP(out.loc[1:j], rej.eLOND[1:j], j),
     cal.FDP(out.loc[1:j], rej.LORD[1:j], j),
     cal.FDP(out.loc[1:j], rej.SAFFRON[1:j], j),
     cal.FDP(out.loc[1:j], rej.suplord[1:j], j)
   )
   MDPs <- c(
-    cal.MDP(out.loc[1:j], rej.ours0[1:j], j),
-    cal.MDP(out.loc[1:j], rej.ours[1:j], j),
-    cal.MDP(out.loc[1:j], rej.ours0.p[1:j], j),
-    cal.MDP(out.loc[1:j], rej.ours.p[1:j], j),
-    cal.MDP(out.loc[1:j], rej.elond[1:j], j),
+    cal.MDP(out.loc[1:j], rej.eLORD[1:j], j),
+    cal.MDP(out.loc[1:j], rej.eSAFFRON[1:j], j),
+    cal.MDP(out.loc[1:j], rej.pL_RAI[1:j], j),
+    cal.MDP(out.loc[1:j], rej.pS_RAI[1:j], j),
+    cal.MDP(out.loc[1:j], rej.eLOND[1:j], j),
     cal.MDP(out.loc[1:j], rej.LORD[1:j], j),
     cal.MDP(out.loc[1:j], rej.SAFFRON[1:j], j),
     cal.MDP(out.loc[1:j], rej.suplord[1:j], j)
   )
   
   output <- c(FDPs, MDPs,
-              time.ours0, time.ours, time.ours0.p, time.ours.p,
-              time.elond, time.LORD, time.SAFFRON, time.suplord)
+              time.eLORD, time.eSAFFRON, time.pL_RAI, time.pS_RAI,
+              time.eLOND, time.LORD, time.SAFFRON, time.suplord)
   
   result_colnames <- c("FDP_eLORD", "FDP_eSAFFRON", "FDP_pL_RAI", "FDP_pS_RAI", 
-                       "FDP_elond", "FDP_LORD", "FDP_SAFFRON", "FDP_suplord",
+                       "FDP_eLOND", "FDP_LORD", "FDP_SAFFRON", "FDP_suplord",
                        "MDP_eLORD", "MDP_eSAFFRON", "MDP_pL_RAI", "MDP_pS_RAI", 
-                       "MDP_elond", "MDP_LORD", "MDP_SAFFRON", "MDP_suplord")
+                       "MDP_eLOND", "MDP_LORD", "MDP_SAFFRON", "MDP_suplord")
   names(output)[1:16] <- result_colnames
 
   return(output)
@@ -317,14 +317,14 @@ multi.experi <- function(pi1 = 0.2,
 
   row_names <- c(
 
-    "FDP_ours0",   "FDP_ours",   "FDP_ours0.p", "FDP_ours.p",
-    "FDP_elond",   "FDP_LORD",   "FDP_SAFFRON", "FDP_suplord",
+    "FDP_eLORD",   "FDP_eSAFFRON",   "FDP_pL_RAI", "FDP_pS_RAI",
+    "FDP_eLOND",   "FDP_LORD",   "FDP_SAFFRON", "FDP_suplord",
 
-    "MDP_ours0",   "MDP_ours",   "MDP_ours0.p", "MDP_ours.p",
-    "MDP_elond",   "MDP_LORD",   "MDP_SAFFRON", "MDP_suplord",
+    "MDP_eLORD",   "MDP_eSAFFRON",   "MDP_pL_RAI", "MDP_pS_RAI",
+    "MDP_eLOND",   "MDP_LORD",   "MDP_SAFFRON", "MDP_suplord",
 
-    "time_ours0",  "time_ours",  "time_ours0.p", "time_ours.p",
-    "time_elond",  "time_LORD",  "time_SAFFRON", "time_suplord"
+    "time_eLORD",  "time_eSAFFRON",  "time_pL_RAI", "time_pS_RAI",
+    "time_eLOND",  "time_LORD",  "time_SAFFRON", "time_suplord"
   )
   
   stopifnot(length(row_names) == nrow(mat))  
