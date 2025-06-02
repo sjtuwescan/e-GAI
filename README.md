@@ -1,8 +1,8 @@
-# e-GAI: e-Value-based Generalized \u03B1-Investing for Online FDR Control
+# e-GAI: e-Value-based Generalized α-Investing for Online FDR Control
 
 This repository implements the **e-GAI** and **p-RAI** methods described in our paper:
 
-> **e-GAI: e-value-based Generalized \u03B1-Investing for Online False Discovery Rate Control**
+> **e-GAI: e-value-based Generalized α-Investing for Online False Discovery Rate Control**
 
 ## 📁 Repository Structure
 
