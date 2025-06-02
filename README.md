@@ -59,7 +59,7 @@ The `Real_data.Rmd` notebook reproduces the analyses from Sections 5.2 and 5.3
 
 ## 📖 References
 
-* **Paper**: [e-GAI: e-value-based Generalized **\alpha**-Investing for Online FDR Control](link-to-pdf)
+* **Paper**: [e-GAI: e-value-based Generalized α-Investing for Online FDR Control](link-to-pdf)
 * **Supplementary**: See algorithms described in `functions/` for technical details.
 
 ## 📝 License
